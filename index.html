@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>f0lk - Транзит 2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #06050a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        /* Фон-canvas: звёзды, световые полосы (транзит), лёгкий грейн */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 5; /* Поднимаем выше всех фоновых слоев */
+            pointer-events: none; /* Чтобы не мешал нажимать на кнопки */
+        }
+
+        /* Мягкие размытые пятна — глубина и цвет, чтобы фон дышал */
+        .bg-blobs {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(130px);
+            mix-blend-mode: screen;
+            opacity: 0.18;
+            will-change: transform;
+        }
+
+        .blob-1 {
+            width: 520px;
+            height: 520px;
+            top: -140px;
+            left: -120px;
+            background: #6b1240;
+            animation: floatBlob1 20s ease-in-out infinite;
+        }
+
+        .blob-2 {
+            width: 600px;
+            height: 600px;
+            bottom: -180px;
+            right: -140px;
+            background: #12194f;
+            animation: floatBlob2 24s ease-in-out infinite;
+        }
+
+        .blob-3 {
+            width: 420px;
+            height: 420px;
+            top: 45%;
+            left: 55%;
+            background: #4a1256;
+            animation: floatBlob3 27s ease-in-out infinite;
+        }
+
+        .blob-4 {
+            width: 360px;
+            height: 360px;
+            top: 65%;
+            left: 8%;
+            background: #0f2a4a;
+            opacity: 0.22;
+            animation: floatBlob4 32s ease-in-out infinite;
+        }
+
+        @keyframes floatBlob1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(70px, 50px) scale(1.1); }
+        }
+
+        @keyframes floatBlob2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-60px, -40px) scale(1.08); }
+        }
+
+        @keyframes floatBlob3 {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-40%, -55%) scale(1.15); }
+        }
+
+        @keyframes floatBlob4 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(40px, -60px) scale(1.12); }
+        }
+
+        /* Виньетка + лёгкое свечение по центру */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 35%, rgba(0,0,0,0.85) 100%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: transparent;
+            border: 2px solid #ff2d55;
+            color: #ff2d55;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+            position: absolute;
+        }
+
+        .btn:hover {
+            background: #ff2d55;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 45, 85, 0.6);
+        }
+
+        .btn.clicked {
+            background: #ff2d55 !important;
+            color: white !important;
+        }
+
+        #btn-1 { position: relative; }
+        #btn-2 { bottom: 30px; right: 30px; display: none; }
+        #btn-3 { left: 30px; top: 50%; transform: translateY(-50%); display: none; }
+
+        #heart-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .album-title {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            opacity: 0.5;
+            letter-spacing: 5px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="album-title">f0lk — ТРАНЗИТ 2</div>
+    <canvas id="bg-canvas"></canvas>
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
+    </div>
+    <div id="heart-container"></div>
+
+    <div class="container">
+        <button id="btn-1" class="btn">что?</button>
+        <button id="btn-2" class="btn">карта</button>
+        <button id="btn-3" class="btn">нажимай.</button>
+    </div>
+
+    <script>
+        // ===== Логика кнопок =====
+        const btn1 = document.getElementById('btn-1');
+        const btn2 = document.getElementById('btn-2');
+        const btn3 = document.getElementById('btn-3');
+
+        btn1.addEventListener('click', () => {
+            btn1.classList.add('clicked');
+            setTimeout(() => {
+                btn1.style.display = 'none';
+                btn2.style.display = 'block';
+                gsap.from(btn2, { opacity: 0, scale: 0.5, duration: 0.5 });
+            }, 500);
+        });
+
+        btn2.addEventListener('click', () => {
+            btn2.classList.add('clicked');
+            setTimeout(() => {
+                btn2.style.display = 'none';
+                btn3.style.display = 'block';
+                gsap.from(btn3, { opacity: 0, x: -100, duration: 0.5 });
+            }, 500);
+        });
+
+        btn3.addEventListener('click', () => {
+            btn3.classList.add('clicked');
+            initHeartAnimation();
+            playMusic();
+            setTimeout(() => {
+                gsap.to(btn3, { opacity: 0, duration: 1, onComplete: () => btn3.style.display = 'none' });
+            }, 500);
+        });
+
+        function playMusic() {
+            const audio = new Audio('f0lk_-_MON_AMI_81777388.mp3');
+            audio.volume = 0.5;
+            audio.play();
+
+            audio.addEventListener('timeupdate', function() {
+                if (this.currentTime >= 21) {
+                    this.pause();
+                    this.currentTime = 0;
+                }
+            });
+        }
+
+        // ===== Генерация точек сердца через SVG-путь (как в референсе) =====
+        function getHeartPoints(sampleCount) {
+            // Классический "ровный" контур сердца (viewBox 0 0 32 29)
+            const d = "M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4" +
+                       "c0,9.4,9.5,11.9,16,21.6c6.2-9.6,16-12.5,16-21.6C32,3.8,28.2,0,23.6,0z";
+
+            const svgNS = "http://www.w3.org/2000/svg";
+            const path = document.createElementNS(svgNS, "path");
+            path.setAttribute("d", d);
+
+            const length = path.getTotalLength();
+            const rawPoints = [];
+            for (let i = 0; i < sampleCount; i++) {
+                const p = path.getPointAtLength((i / sampleCount) * length);
+                rawPoints.push({ x: p.x, y: p.y });
+            }
+
+            // Центрируем относительно центроида контура
+            let cx = 0, cy = 0;
+            rawPoints.forEach(p => { cx += p.x; cy += p.y; });
+            cx /= rawPoints.length;
+            cy /= rawPoints.length;
+
+            return rawPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+        }
+
+        // ===== Анимация сердца (Three.js) =====
+        function initHeartAnimation() {
+            const container = document.getElementById('heart-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            const particlesCount = 32000;
+            const posArray = new Float32Array(particlesCount * 3);
+            const targetPositions = new Float32Array(particlesCount * 3);
+            const colors = new Float32Array(particlesCount * 3);
+
+            const heartOutline = getHeartPoints(2000);
+            const SCALE = 1.15; // подгонка размера сердца
+
+            for (let i = 0; i < particlesCount; i++) {
+                const pt = heartOutline[i % heartOutline.length];
+
+                // небольшой шум для объёма контура (тонкий, а не заливка)
+                const jitterX = (Math.random() - 0.5) * 0.9;
+                const jitterY = (Math.random() - 0.5) * 0.9;
+                const jitterZ = (Math.random() - 0.5) * 3.0;
+
+                const x = (pt.x + jitterX) * SCALE;
+                const y = (-pt.y + jitterY) * SCALE; // инверсия Y: SVG y-вниз -> three y-вверх
+                const z = jitterZ;
+
+                targetPositions[i * 3] = x;
+                targetPositions[i * 3 + 1] = y;
+                targetPositions[i * 3 + 2] = z;
+
+                // старт — из центра
+                posArray[i * 3] = 0;
+                posArray[i * 3 + 1] = 0;
+                posArray[i * 3 + 2] = 0;
+
+                // Насыщенный розово-малиновый через HSL: варьируем оттенок и светлоту,
+                // но держим высокую насыщенность — цвет выглядит ярче и "живее"
+                const hue = (335 + Math.random() * 20) / 360; // 335°–355°
+                const lightness = 0.45 + Math.random() * 0.2;
+                const mixedColor = new THREE.Color();
+                mixedColor.setHSL(hue, 1.0, lightness);
+                // Небольшая доля ярких бело-розовых бликов для живого "сияющего" вида
+                if (Math.random() < 0.1) {
+                    mixedColor.lerp(new THREE.Color(0xffffff), Math.random() * 0.5);
+                }
+                colors[i * 3] = mixedColor.r;
+                colors[i * 3 + 1] = mixedColor.g;
+                colors[i * 3 + 2] = mixedColor.b;
+            }
+
+            const particlesGeometry = new THREE.BufferGeometry();
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const canvasTex = document.createElement('canvas');
+            canvasTex.width = 64; canvasTex.height = 64;
+            const ctxTex = canvasTex.getContext('2d');
+            const gradient = ctxTex.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctxTex.fillStyle = gradient;
+            ctxTex.fillRect(0, 0, 64, 64);
+            const texture = new THREE.CanvasTexture(canvasTex);
+
+            const material = new THREE.PointsMaterial({
+                size: 0.12,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                map: texture
+            });
+
+            const particlesMesh = new THREE.Points(particlesGeometry, material);
+            scene.add(particlesMesh);
+            camera.position.z = 30;
+
+            // ---- Мягкое свечение (halo) вокруг сердца через CSS drop-shadow ----
+            renderer.domElement.style.filter = 'drop-shadow(0 0 0px rgba(255,45,85,0))';
+
+            const animData = { progress: 0 };
+            const appearScale = { value: 0.4 };
+            const glow = { intensity: 0 }; // растёт до 1 при появлении и остаётся навсегда
+
+            // Появление — рост opacity до 1, дальше НИКОГДА не убывает
+            gsap.to(material, { opacity: 1, duration: 1.8, ease: "power2.out" });
+
+            // Плавное "распускание" сердца из точки
+            gsap.to(animData, {
+                progress: 1,
+                duration: 4,
+                ease: "expo.out",
+                onUpdate: () => {
+                    const pos = particlesGeometry.attributes.position.array;
+                    for (let i = 0; i < particlesCount; i++) {
+                        const i3 = i * 3;
+                        pos[i3] = targetPositions[i3] * animData.progress;
+                        pos[i3 + 1] = targetPositions[i3 + 1] * animData.progress;
+                        pos[i3 + 2] = targetPositions[i3 + 2] * animData.progress;
+                    }
+                    particlesGeometry.attributes.position.needsUpdate = true;
+                }
+            });
+
+            // Красивое масштабное появление (лёгкий "отскок")
+            gsap.to(appearScale, {
+                value: 1,
+                duration: 2.6,
+                ease: "elastic.out(1, 0.65)",
+                delay: 0.2
+            });
+
+            // Свечение нарастает вместе с появлением сердца, затем мягко пульсирует
+            gsap.to(glow, {
+                intensity: 1,
+                duration: 2,
+                ease: "power2.out",
+                delay: 0.6
+            });
+
+            function animate() {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.0018;
+
+                // Дыхание + масштаб появления
+                const breathing = 1 + Math.sin(Date.now() * 0.0018) * 0.025;
+                const s = appearScale.value * breathing;
+                particlesMesh.scale.set(s, s, s);
+
+                // Постоянное мягкое свечение с едва заметной пульсацией (не гаснет)
+                const pulse = 0.85 + Math.sin(Date.now() * 0.0018) * 0.15;
+                const blur = 14 * pulse * glow.intensity;
+                const alpha = 0.55 * pulse * glow.intensity;
+                renderer.domElement.style.filter =
+                    `drop-shadow(0 0 ${blur.toFixed(1)}px rgba(255,45,122,${alpha.toFixed(2)}))`;
+
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // ===== Живой анимированный фон: звёзды + световые полосы "транзита" + грейн =====
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H, DPR;
+
+        function resize() {
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = W;
+            canvas.height = H;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Звёзды ---
+        const STAR_COUNT = 300;
+        const stars = [];
+
+        function spawnStar(s, initial = false) {
+            s.x = Math.random() * W;
+            s.y = Math.random() * H;
+            s.r = Math.random() * 1.5 + 0.5;
+            if (Math.random() < 0.2) s.r += Math.random() * 2;
+            s.maxAlpha = Math.random() * 0.5 + 0.5;
+            s.state = initial ? (Math.random() > 0.5 ? 'hold' : 'in') : 'in';
+            s.alpha = initial ? Math.random() * s.maxAlpha : 0;
+            s.fadeInTime = Math.random() * 2000 + 1000;
+            s.holdTime = Math.random() * 4000 + 2000;
+            s.fadeOutTime = Math.random() * 2500 + 1200;
+            s.timer = initial ? Math.random() * 2000 : 0;
+            s.delay = 0;
+        }
+
+        for (let i = 0; i < STAR_COUNT; i++) {
+            const s = {};
+            spawnStar(s, true);
+            stars.push(s);
+        }
+
+        for (let i = 0; i < STAR_COUNT; i++) {
+            const s = {};
+            spawnStar(s);
+            s.timer = Math.random() * (s.fadeInTime + s.holdTime); // разброс фаз при старте
+            s.alpha = Math.random() * s.maxAlpha;
+            stars.push(s);
+        }
+
+        // --- Световые полосы "транзита" — как далёкие огни, проносящиеся по диагонали ---
+        function makeStreak() {
+            const fromLeft = Math.random() < 0.5;
+            const y = Math.random() * H * 0.9 + H * 0.05;
+            return {
+                x: fromLeft ? -200 : W + 200,
+                y: y,
+                len: Math.random() * 220 + 140,
+                speed: (Math.random() * 3 + 2.2) * (fromLeft ? 1 : -1),
+                thickness: Math.random() * 1.6 + 0.6,
+                hue: Math.random() < 0.5 ? '255,45,122' : '110,140,255',
+                alpha: Math.random() * 0.25 + 0.12,
+                tilt: (Math.random() * 0.15 + 0.02) * (fromLeft ? 1 : -1)
+            };
+        }
+        let streaks = [];
+        for (let i = 0; i < 3; i++) streaks.push(makeStreak());
+
+        let lastTime = performance.now();
+        function drawFrame(now) {
+            const dt = Math.min(now - lastTime, 100);
+            lastTime = now;
+
+            ctx.clearRect(0, 0, W, H);
+            
+            // Звёзды: цикл рождение -> свечение -> угасание -> новое рождение
+            for (const s of stars) {
+                if (s.delay > 0) {
+                    s.delay -= dt;
+                } else {
+                    s.timer += dt;
+                    if (s.state === 'in') {
+                        s.alpha = Math.min(s.maxAlpha, (s.timer / s.fadeInTime) * s.maxAlpha);
+                        if (s.timer >= s.fadeInTime) { s.state = 'hold'; s.timer = 0; }
+                    } else if (s.state === 'hold') {
+                        // лёгкое дыхание пока звезда "держится"
+                        s.alpha = s.maxAlpha * (0.85 + 0.15 * Math.sin(now * 0.002 + s.r));
+                        if (s.timer >= s.holdTime) { s.state = 'out'; s.timer = 0; }
+                    } else if (s.state === 'out') {
+                        s.alpha = Math.max(0, s.maxAlpha * (1 - s.timer / s.fadeOutTime));
+                        if (s.timer >= s.fadeOutTime) {
+                            spawnStar(s);
+                        }
+                    }
+                }
+
+                if (s.alpha > 0.01) {
+                    // мягкое свечение вокруг звезды
+                    const glowR = s.r * 4;
+                    const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
+                    glow.addColorStop(0, `rgba(255,255,255,${(s.alpha * 0.35).toFixed(3)})`);
+                    glow.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = glow;
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, glowR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(255,255,255,${s.alpha.toFixed(3)})`;
+                    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Световые полосы транзита
+            for (let i = streaks.length - 1; i >= 0; i--) {
+                const st = streaks[i];
+                st.x += st.speed;
+                const y2 = st.y + st.tilt * st.len;
+
+                const grad = ctx.createLinearGradient(st.x, st.y, st.x - Math.sign(st.speed) * st.len, y2);
+                grad.addColorStop(0, `rgba(${st.hue},${st.alpha})`);
+                grad.addColorStop(1, `rgba(${st.hue},0)`);
+
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = st.thickness;
+                ctx.beginPath();
+                ctx.moveTo(st.x, st.y);
+                ctx.lineTo(st.x - Math.sign(st.speed) * st.len, y2);
+                ctx.stroke();
+
+                // убрать полосу, если ушла за экран, и добавить новую
+                if ((st.speed > 0 && st.x - st.len > W + 250) || (st.speed < 0 && st.x + st.len < -250)) {
+                    streaks.splice(i, 1);
+                }
+            }
+            if (streaks.length < 3 && Math.random() < 0.02) {
+                streaks.push(makeStreak());
+            }
+
+            // Тонкий грейн, чтобы фон не выглядел "пластиковым"
+            for (let i = 0; i < 60; i++) {
+                const x = Math.random() * W;
+                const y = Math.random() * H;
+                ctx.fillStyle = 'rgba(255,255,255,0.02)';
+                ctx.fillRect(x, y, 1, 1);
+            }
+
+            requestAnimationFrame(drawFrame);
+        }
+        requestAnimationFrame(drawFrame);
+    </script>
+</body>
+</html>
